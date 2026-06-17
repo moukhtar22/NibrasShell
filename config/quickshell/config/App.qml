@@ -90,6 +90,25 @@ Singleton {
     property alias menuStyle: root.config.menuStyle
 
     property alias favoriteApps: root.config.favoriteApps
+    property alias dockApps: root.config.dockApps
+
+    // Dock configs
+    property alias showDock: root.config.showDock
+    property alias dockIconSize: root.config.dockIconSize
+
+    readonly property bool hasWindowsOnWorkspace: {
+        if (!Hyprland.focusedWorkspace)
+            return false;
+        let wsId = Hyprland.focusedWorkspace.id;
+        let toplevels = Hyprland.toplevels.values;
+        for (let i = 0; i < toplevels.length; i++) {
+            let win = toplevels[i];
+            if (win.workspace && win.workspace.id === wsId) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     property alias topBarActiveWindowMinWidth: root.config.topBarActiveWindowMinWidth
     property alias topBarActiveWindowMaxWidth: root.config.topBarActiveWindowMaxWidth
@@ -296,7 +315,6 @@ Singleton {
             readonly property var callIdleCapsuleAi: [...initialAiCommand, "--api_key", (root.systemAiApiKey !== "" ? root.systemAiApiKey : root.aiApiKey), "--preset", "idle_capsule", "--json_mode", "--model", root.systemAiModel]
             readonly property var callIdleCapsuleHoverBulkAi: [...callIdleCapsuleAi, "--message_key", "idle_capsule_bulk"]
             readonly property var callIdleCapsuleHoverStartupAi: [...callIdleCapsuleAi, "--message_key", "idle_capsule_startup"]
-            readonly property var callIdleCapsuleHoverFreshAi: [...callIdleCapsuleAi, "--message_key", "idle_capsule_fresh"]
             readonly property var callTodoAi: [...initialAiCommand, "--api_key", (root.systemAiApiKey !== "" ? root.systemAiApiKey : root.aiApiKey), "--preset", "todo", "--json_mode", "--user_persona", root.todoPersona, "--model", root.systemAiModel]
             readonly property var callSystemActionAi: [...initialAiCommand, "--api_key", (root.systemAiApiKey !== "" ? root.systemAiApiKey : root.aiApiKey), "--preset", "system_action", "--json_mode", "--user_persona", root.systemPersona, "--model", root.systemAiModel]
             readonly property var callColorPaletteAi: [...initialAiCommand, "--api_key", (root.systemAiApiKey !== "" ? root.systemAiApiKey : root.aiApiKey), "--preset", "color_palette", "--json_mode", "--user_persona", root.systemPersona, "--model", root.systemAiModel]
