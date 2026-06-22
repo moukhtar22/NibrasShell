@@ -5,19 +5,28 @@ import QtQuick.Shapes
 Shape {
     id: root
     preferredRendererType: Shape.CurveRenderer
+    antialiasing: true
 
     property real notchHeight: 0
     property real notchWidth: 0
     property real cornerRadius: 0
+    property color fillColor: "white"
 
     readonly property real nh: notchHeight
     readonly property real nw: notchWidth
-    readonly property real rN: Math.min(24, notchHeight)
+
+    // ---------------------------------------------------------
+    // ربط انحناء زوايا النوتش (rN) ديناميكياً مع راديوس النظام (cornerRadius)
+    // ---------------------------------------------------------
+    // إذا كان الراديوس 1 أو أقل (مربع)، يصبح انحناء النوتش 0 ليرسم زوايا حادة 90 درجة.
+    // خلاف ذلك، يتناسب انحناء النوتش طردياً مع راديوس النظام بحد أقصى 24 بكسل.
+    readonly property real rN: root.cornerRadius <= 1 ? 0 : Math.min(root.cornerRadius * 1.2, notchHeight, 24)
+
     readonly property real midX: (width / 2) - 19
     readonly property real rOuter: cornerRadius
 
     ShapePath {
-        fillColor: "white"
+        fillColor: root.fillColor
         strokeColor: "transparent"
         fillRule: ShapePath.OddEvenFill
 

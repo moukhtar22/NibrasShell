@@ -214,15 +214,24 @@ ShellRoot {
             LeftWindowFull {
                 id: leftPanelFull
             }
+
             Cheatsheet {
                 id: cheatsheetPanel
             }
+
             BottomLauncher {
                 id: bottomLauncherPanel
             }
-            Dock {
-                id: dockPanel
+
+            Variants {
+                model: Quickshell.screens
+                Dock {
+                    id: dockPanel
+                    required property ShellScreen modelData
+                    screen: modelData
+                }
             }
+
             PowerMenuWindow {
                 id: powerMenuWindow
             }
@@ -232,7 +241,7 @@ ShellRoot {
                 target: null
                 Component.onCompleted: {
                     EventBus.on(Events.TOGGLE_BOTTOM_LAUNCHER, () => {
-                        bottomLauncherPanel.toggle();
+                        bottomLauncherPanel.toggle(true);
                     }, shellRoot);
 
                     EventBus.on(Events.TOGGLE_DOCK, () => {
@@ -242,11 +251,11 @@ ShellRoot {
             }
 
             // 5. IPC Handler
+            property int openedMenu: LeftMenuStatus.selectedIndex
+
             IpcHandler {
                 id: handler
                 target: "LeftBar"
-
-                property int openedMenu: LeftMenuStatus.selectedIndex
 
                 function toggleMenu(targetIndex: int) {
                     let index = Number(targetIndex);
@@ -285,11 +294,7 @@ ShellRoot {
                     toggleMenu(Consts.AI_BOT_MENU_INDEX);
                 }
                 function toggleApplauncherMenu() {
-                    if (App.useBottomLauncher) {
-                        bottomLauncherPanel.toggle();
-                    } else {
-                        toggleMenu(Consts.APPLICATIONS_MENU_INDEX);
-                    }
+                    bottomLauncherPanel.toggle();
                 }
                 function togglePowerMenu() {
                     EventBus.emit(Events.TOGGLE_POWER_MENU);

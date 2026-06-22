@@ -272,8 +272,6 @@ Flow {
             border.color: root.theme.colors.primary.alpha(0.3)
             border.width: 1
 
-            layer.enabled: true
-            layer.effect: ShaderEffect {}
         }
 
         onAboutToShow: {
@@ -631,10 +629,10 @@ Flow {
 
         SmartPopup {
             id: colorPopup
-            width: App.useBottomLauncher ? 228 : 155
+            width: 228
 
             contentItem: Grid {
-                columns: App.useBottomLauncher ? 6 : 4
+                columns: 6
                 spacing: 4
                 Repeater {
                     model: root.colorPresets

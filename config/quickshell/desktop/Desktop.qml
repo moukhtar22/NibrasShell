@@ -3,6 +3,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Hyprland       // <-- 1. إضافة استيراد Hyprland لمتابعة الشاشة النشطة
 import QtQuick.Effects
 import Qt5Compat.GraphicalEffects
 
@@ -40,20 +41,27 @@ PanelWindow {
     property int cornerRadius: elementRadius <= 1 ? 0 : elementRadius + 6
 
     // ---------------------------------------------------------
+    // 2. التحقق مما إذا كانت هذه الشاشة هي الشاشة النشطة (التي يتواجد عليها الماوس)
+    // ---------------------------------------------------------
+    readonly property bool isFocusedMonitor: desktopRoot.screen && Hyprland.focusedMonitor && (desktopRoot.screen.name === Hyprland.focusedMonitor.name)
+
+    // ---------------------------------------------------------
     // خصائص القطع الديناميكي السفلي (Dynamic Notch) - نصف دائرة
     // ---------------------------------------------------------
-    readonly property bool notchVisible: App.showDock && !App.hasWindowsOnWorkspace
+    // 3. تم إضافة "isFocusedMonitor" إلى الشرط لضمان تفعيل النوتش فقط في الشاشة النشطة
+    readonly property bool notchVisible: App.showDock && !App.hasWindowsOnWorkspace && isFocusedMonitor
     readonly property real notchTargetHeight: App.dockIconSize + 48
-    property real dockActualWidth: 200
-    readonly property real notchWidth: dockActualWidth
+    property real dockActualWidth: notchTargetHeight * 15
+    property bool launcherVisible: false
+    readonly property real launcherExtraHeight: App.launcherIsShown ? (App.dockIconSize + 600) : 0
+    readonly property real notchWidth: Math.max(dockActualWidth, launcherVisible ? App.bottomLauncherWidth : 0)
 
-    property real notchHeight: notchVisible ? notchTargetHeight : 0
+    property real notchHeight: notchVisible ? notchTargetHeight + launcherExtraHeight : 0
 
     Behavior on notchHeight {
-        SpringAnimation {
-            spring: 2.8
-            damping: 0.6
-            epsilon: 0.1
+        NumberAnimation {
+            duration: 280
+            easing.type: Easing.OutCubic
         }
     }
 
@@ -93,7 +101,12 @@ PanelWindow {
             notchWidth: desktopRoot.notchWidth
             cornerRadius: desktopRoot.cornerRadius
 
+            // جعل اللون يطابق تماماً خلفية سطح المكتب لمنع تسرب اللون الأبيض عند الحواف
+            fillColor: Theme.ThemeManager.selectedTheme.colors.surface
+
             layer.enabled: true
+            layer.smooth: true     // تفعيل التنعيم لنسيج الطبقة (Texture)
+            layer.samples: 4       // تنعيم حواف عالي الدقة (MSAA) يمنع التشوهات المنحنية
             layer.effect: MultiEffect {
                 shadowEnabled: true
                 shadowColor: Theme.ThemeManager.selectedTheme.colors.shadow.alpha(0.8)
@@ -115,15 +128,16 @@ PanelWindow {
             blurEnabled: desktopRoot.blurEnabled
             blurValue: Theme.ThemeManager.selectedTheme.systemSettings.wallpaperBlurStrength
 
-            // حجز المساحة التفاعلية للودجت لترتفع للأعلى بسلاسة مع صعود الدوك
             content: Widgets {
                 id: myWidgets
                 anchors.fill: parent
-                anchors.bottomMargin: desktopRoot.notchHeight // حجز المساحة ومنع التداخل
+                anchors.bottomMargin: desktopRoot.notchHeight
                 dimWidgets: desktopRoot.isMenuOpened
             }
 
             layer.enabled: true
+            layer.smooth: true     // لضمان نعومة حواف الـ Wallpaper المعالجة بالقناع
+            layer.samples: 4       // منع بكسلة أطراف القناع الدائري
             layer.effect: OpacityMask {
                 maskSource: maskItem
             }
@@ -141,6 +155,7 @@ PanelWindow {
                 notchHeight: desktopRoot.notchHeight
                 notchWidth: desktopRoot.notchWidth
                 cornerRadius: desktopRoot.cornerRadius
+                fillColor: "white" // يترك أبيض ليعمل كقناع شفافية صحيح للـ OpacityMask
             }
         }
     }
@@ -182,6 +197,10 @@ PanelWindow {
 
         EventBus.on(Events.DOCK_WIDTH_CHANGED, w => {
             desktopRoot.dockActualWidth = w + 5;
+        }, desktopRoot);
+
+        EventBus.on(Events.LAUNCHER_VISIBILITY_CHANGED, shown => {
+            desktopRoot.launcherVisible = shown;
         }, desktopRoot);
 
         desktopRoot.updateThemeData();

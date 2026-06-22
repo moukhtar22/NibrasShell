@@ -84,7 +84,7 @@ PanelWindow {
 
     Timer {
         id: startOpenAnimTimer
-        interval: 30
+        interval: 0
         repeat: false
         onTriggered: {
             if (root.isShown) {
@@ -109,8 +109,8 @@ PanelWindow {
         anchors.horizontalCenter: parent.horizontalCenter
 
         radius: ThemeManager.selectedTheme.dimensions.elementRadius * 1.5
-        color: ThemeManager.selectedTheme.colors.surfaceContainer
-        border.color: ThemeManager.selectedTheme.colors.primary.alpha(0.3)
+        color: ThemeManager.selectedTheme.colors.surface
+        border.color: ThemeManager.selectedTheme.colors.primary.alpha(0.2)
         border.width: 1
 
         layer.enabled: root.visible && opacity < 1
@@ -162,18 +162,16 @@ PanelWindow {
                 from: "hidden"
                 to: "visible"
                 ParallelAnimation {
-                    // حركة فيزيائية مرنة لصعود حاوية التطبيقات بشكل ناعم وهلامي
-                    SpringAnimation {
+                    NumberAnimation {
                         target: contentContainer
-                        properties: "y"
-                        spring: 3.8
-                        damping: 0.65
-                        mass: 0.8
+                        property: "y"
+                        duration: 280
+                        easing.type: Easing.OutCubic
                     }
                     NumberAnimation {
                         target: contentContainer
-                        properties: "opacity"
-                        duration: 250
+                        property: "opacity"
+                        duration: 200
                         easing.type: Easing.OutQuad
                     }
                 }
@@ -184,13 +182,13 @@ PanelWindow {
                 SequentialAnimation {
                     ParallelAnimation {
                         NumberAnimation {
-                            properties: "y"
-                            duration: 250
-                            easing.type: Easing.InQuad
+                            property: "y"
+                            duration: 200
+                            easing.type: Easing.InCubic
                         }
                         NumberAnimation {
-                            properties: "opacity"
-                            duration: 200
+                            property: "opacity"
+                            duration: 160
                             easing.type: Easing.InQuad
                         }
                     }

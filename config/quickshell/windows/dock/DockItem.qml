@@ -21,6 +21,7 @@ Item {
     required property bool isPinnedToDock
     required property string tooltipText
     required property int iconSize
+    required property var windows
 
     required property var panelWindow
 
@@ -110,7 +111,7 @@ Item {
             text: instanceCount
             font.pixelSize: 10
             font.bold: true
-            color: "white"
+            color: ThemeManager.selectedTheme.colors.onError
         }
     }
 
@@ -120,6 +121,17 @@ Item {
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
 
+        onContainsMouseChanged: {
+            if (containsMouse) {
+                tooltipDelay.restart();
+            } else {
+                tooltipDelay.stop();
+                if (!tooltipHoverHandler.hovered) {
+                    hideTooltipTimer.restart();
+                }
+            }
+        }
+
         onClicked: mouse => {
             if (mouse.button === Qt.LeftButton) {
                 bounceAnim.restart();
@@ -127,11 +139,141 @@ Item {
             } else if (mouse.button === Qt.RightButton) {
                 if (contextMenu.opened) {
                     contextMenu.close();
+                    if (panelWindow) {
+                        panelWindow.anyMenuOpen = false;
+                        if (panelWindow.currentOpenPopup === contextMenu) {
+                            panelWindow.currentOpenPopup = null;
+                        }
+                    }
                 } else {
                     if (panelWindow.currentOpenPopup && panelWindow.currentOpenPopup !== contextMenu) {
                         panelWindow.currentOpenPopup.close();
                     }
                     contextMenu.open();
+                }
+            }
+        }
+    }
+
+    Timer {
+        id: tooltipDelay
+        interval: 250
+        onTriggered: {
+            if (mouseArea.containsMouse && !contextMenu.opened) {
+                tooltip.opacity = 1;
+                if (panelWindow)
+                    panelWindow.anyDockTooltipVisible = true;
+            }
+        }
+    }
+
+    Timer {
+        id: hideTooltipTimer
+        interval: 100
+        onTriggered: {
+            if (!mouseArea.containsMouse && !tooltipHoverHandler.hovered) {
+                tooltip.opacity = 0;
+                if (panelWindow)
+                    panelWindow.anyDockTooltipVisible = false;
+            }
+        }
+    }
+
+    Rectangle {
+        id: tooltip
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: -height - 10
+        width: instanceCount > 1 ? instanceListRow.width + 16 : tooltipLabel.implicitWidth + 16
+        height: instanceCount > 1 ? instanceListRow.height + 12 : tooltipLabel.implicitHeight + 10
+        radius: ThemeManager.selectedTheme.dimensions.elementRadius * 0.6
+        color: ThemeManager.selectedTheme.colors.surfaceContainerHigh
+        border.color: ThemeManager.selectedTheme.colors.outlineVariant
+        border.width: 1
+        opacity: 0
+        visible: opacity > 0
+        z: 100
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 150
+            }
+        }
+
+        HoverHandler {
+            id: tooltipHoverHandler
+            onHoveredChanged: {
+                if (!hovered && !mouseArea.containsMouse) {
+                    hideTooltipTimer.restart();
+                }
+            }
+        }
+
+        // الحالة البسيطة: اسم التطبيق فقط (عند اinuxtance واحد)
+        Text {
+            id: tooltipLabel
+            anchors.centerIn: parent
+            visible: instanceCount <= 1
+            text: appData ? appData.name : appId
+            font.pixelSize: 11
+            color: ThemeManager.selectedTheme.colors.onSurface
+        }
+
+        // الحالة المركبة: قائمة الانستانسات مع رقم المساحة
+        Row {
+            id: instanceListRow
+            visible: instanceCount > 1
+            anchors.centerIn: parent
+            spacing: 4
+
+            Repeater {
+                model: instanceCount > 1 ? windows : []
+                delegate: Item {
+                    width: 32
+                    height: 32
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: ThemeManager.selectedTheme.dimensions.elementRadius * 0.5
+                        color: instanceMouse.containsMouse ? ThemeManager.selectedTheme.colors.primary.alpha(0.2) : ThemeManager.selectedTheme.colors.surfaceContainerHigh
+                    }
+
+                    IconImage {
+                        anchors.centerIn: parent
+                        width: 16
+                        height: 16
+                        source: Quickshell.iconPath(appData ? appData.icon : "application-x-executable", "application-x-executable")
+                    }
+
+                    Rectangle {
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 1
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: 14
+                        height: 11
+                        radius: 3
+                        color: ThemeManager.selectedTheme.colors.primary
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: (modelData && modelData.workspaceId >= 0) ? modelData.workspaceId : "?"
+                            font.pixelSize: 8
+                            font.bold: true
+                            color: ThemeManager.selectedTheme.colors.onPrimary
+                        }
+                    }
+
+                    MouseArea {
+                        id: instanceMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            if (modelData && modelData.address) {
+                                Hyprland.dispatch("focuswindow address:" + modelData.address);
+                            }
+                            tooltip.opacity = 0;
+                            tooltipDelay.stop();
+                        }
+                    }
                 }
             }
         }
@@ -148,7 +290,11 @@ Item {
         x: (parent.width / 2) - (width / 2)
 
         onOpened: {
+            tooltip.opacity = 0;
+            tooltipDelay.stop();
+            hideTooltipTimer.stop();
             if (panelWindow) {
+                panelWindow.anyDockTooltipVisible = false;
                 panelWindow.anyMenuOpen = true;
                 panelWindow.currentOpenPopup = contextMenu;
             }
@@ -203,6 +349,12 @@ Item {
                     hoverEnabled: true
                     onClicked: {
                         contextMenu.close();
+                        if (panelWindow) {
+                            panelWindow.anyMenuOpen = false;
+                            if (panelWindow.currentOpenPopup === contextMenu) {
+                                panelWindow.currentOpenPopup = null;
+                            }
+                        }
                         itemRoot.launchOrFocus();
                     }
                 }
@@ -237,6 +389,12 @@ Item {
                     hoverEnabled: true
                     onClicked: {
                         contextMenu.close();
+                        if (panelWindow) {
+                            panelWindow.anyMenuOpen = false;
+                            if (panelWindow.currentOpenPopup === contextMenu) {
+                                panelWindow.currentOpenPopup = null;
+                            }
+                        }
                         bounceAnim.restart();
                         if (appData && typeof appData.execute === "function") {
                             appData.execute();
@@ -274,6 +432,12 @@ Item {
                     hoverEnabled: true
                     onClicked: {
                         contextMenu.close();
+                        if (panelWindow) {
+                            panelWindow.anyMenuOpen = false;
+                            if (panelWindow.currentOpenPopup === contextMenu) {
+                                panelWindow.currentOpenPopup = null;
+                            }
+                        }
                         if (windowAddress) {
                             Hyprland.dispatch("closewindow address:" + windowAddress);
                         }
@@ -315,6 +479,12 @@ Item {
                     hoverEnabled: true
                     onClicked: {
                         contextMenu.close();
+                        if (panelWindow) {
+                            panelWindow.anyMenuOpen = false;
+                            if (panelWindow.currentOpenPopup === contextMenu) {
+                                panelWindow.currentOpenPopup = null;
+                            }
+                        }
                         let favs = [...App.favoriteApps];
                         let idx = favs.indexOf(appId);
                         if (idx >= 0) {
@@ -356,6 +526,12 @@ Item {
                     hoverEnabled: true
                     onClicked: {
                         contextMenu.close();
+                        if (panelWindow) {
+                            panelWindow.anyMenuOpen = false;
+                            if (panelWindow.currentOpenPopup === contextMenu) {
+                                panelWindow.currentOpenPopup = null;
+                            }
+                        }
                         let dockApps = [...App.dockApps];
                         let idx = dockApps.indexOf(appId);
                         if (idx >= 0) {

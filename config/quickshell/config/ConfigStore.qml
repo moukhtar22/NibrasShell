@@ -61,11 +61,10 @@ QtObject {
 
     property int firstDayOfWeek: 6 // Saturday
 
-    property bool useBottomLauncher: false  // false = side launcher, true = bottom launcher
-    property int bottomLauncherWidth: 800
+    property int bottomLauncherWidth: 550
 
     // Default menu style changed to floating per user request
-    property string menuStyle: C.DOCKED_MOVING_BAR
+    property string menuStyle: C.FLOATING
 
     property var favoriteApps: []
     property var dockApps: []
@@ -120,8 +119,6 @@ QtObject {
         // -------------------------------------------------------
         if (data.menuStyle !== undefined)
             store.menuStyle = data.menuStyle;
-        if (data.useBottomLauncher !== undefined)
-            store.useBottomLauncher = data.useBottomLauncher;
         if (data.bottomLauncherWidth !== undefined)
             store.bottomLauncherWidth = data.bottomLauncherWidth;
         if (data.favoriteApps !== undefined)

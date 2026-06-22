@@ -10,12 +10,13 @@ import "root:/themes"
 import "root:/components"
 import "root:/config"
 import "root:/config/EventNames.js" as Events
+import "root:/config/ConstValues.js" as C        // <-- 1. إضافة استيراد الثوابت
 import "root:/utils"
 
 PanelWindow {
     id: root
 
-    visible: App.showDock
+    visible: App.showDock && modelData.name === Hyprland.focusedMonitor.name
     color: "transparent"
     focusable: root.anyMenuOpen
     exclusionMode: ExclusionMode.Ignore
@@ -41,8 +42,10 @@ PanelWindow {
     property bool mouseHovered: false
     property bool hasAppsOnWorkspace: App.hasWindowsOnWorkspace
     property bool anyMenuOpen: false
+    property bool anyDockTooltipVisible: false
     property var currentOpenPopup: null
     property bool isBottomLauncherOpen: false
+    property bool isLeftMenuOpen: false         // <-- 2. متغير حالة لمراقبة فتح القائمة اليسرى
 
     readonly property bool shouldDockBeRevealed: !hasAppsOnWorkspace || root.mouseHovered || root.anyMenuOpen || root.isBottomLauncherOpen
 
@@ -50,7 +53,7 @@ PanelWindow {
 
     Timer {
         id: colorTransitionTimer
-        interval: 500
+        interval: 300
         onTriggered: {
             root.effectiveHasApps = true;
         }
@@ -90,12 +93,24 @@ PanelWindow {
         EventBus.on(Events.BOTTOM_LAUNCHER_CLOSED, () => {
             root.isBottomLauncherOpen = false;
         }, root);
+
+        // <-- 3. الاستماع لأحداث القائمة لتعديل حالة المتغير
+        EventBus.on(Events.LEFT_MENU_IS_OPENED, () => {
+            root.isLeftMenuOpen = true;
+        }, root);
+        EventBus.on(Events.LEFT_MENU_IS_CLOSED, () => {
+            root.isLeftMenuOpen = false;
+        }, root);
+
+        EventBus.on(Events.DOCK_APPS_CHANGED, () => {
+            root.updateTrigger++;
+        }, root);
     }
 
     // =========================================================
     // 1. نظام القناع المركزي المرتبط بسير النوافذ (The Unified Shape)
     // =========================================================
-    mask: anyMenuOpen ? null : dockMaskRegion
+    mask: (anyMenuOpen || anyDockTooltipVisible) ? null : dockMaskRegion
 
     Region {
         id: dockMaskRegion
@@ -125,7 +140,7 @@ PanelWindow {
             anchors.bottom: parent.bottom
             anchors.left: parent.left
             anchors.right: parent.right
-            height: 2
+            height: 4
             color: "transparent"
         }
 
@@ -143,7 +158,6 @@ PanelWindow {
     // =========================================================
     // 2. المحرك المراقِب الديكتاتوري والمحيد لكل التجاذبات الداخلية (The Omni-Observer)
     // =========================================================
-    // يُقرأ التفاعل الآن في المحيط العام لكافة النافذة المقنّنة بالخارج، مستحيل أن يسرق "DockItem" هذه المهمة أو يتجاهله!
     HoverHandler {
         id: globalWindowTracker
         onHoveredChanged: {
@@ -173,21 +187,22 @@ PanelWindow {
     function resolveAppData(appId) {
         if (!DesktopEntries || !appId)
             return null;
-        if (typeof DesktopEntries.heuristicLookup === "function") {
-            let heuristicEntry = DesktopEntries.heuristicLookup(appId);
-            if (heuristicEntry)
-                return heuristicEntry;
-        }
 
-        let entry = DesktopEntries.byId(appId) || (appId.endsWith(".desktop") ? DesktopEntries.byId(appId + ".desktop") : null);
+        let entry = DesktopEntries.byId(appId);
         if (entry)
             return entry;
+
+        if (!appId.endsWith(".desktop")) {
+            entry = DesktopEntries.byId(appId + ".desktop");
+            if (entry)
+                return entry;
+        }
 
         let lowerId = appId.toLowerCase();
         let apps = DesktopEntries.applications.values;
         for (let i = 0; i < apps.length; i++) {
             let app = apps[i];
-            if (app && ((app.id && app.id.toLowerCase() === lowerId) || (app.name && app.name.toLowerCase() === lowerId) || (app.startupClass && app.startupClass.toLowerCase() === lowerId))) {
+            if (app && app.id && app.id.toLowerCase() === lowerId) {
                 return app;
             }
         }
@@ -209,15 +224,26 @@ PanelWindow {
             if (!rawAddr)
                 continue;
             let addr = rawAddr.startsWith("0x") ? rawAddr : "0x" + rawAddr;
+            let wsId = (win.workspace && win.workspace.id !== undefined) ? win.workspace.id : -1;
 
             if (!apps[appId])
                 apps[appId] = {
                     appId: appId,
                     count: 1,
-                    address: addr
+                    windows: [
+                        {
+                            address: addr,
+                            workspaceId: wsId
+                        }
+                    ]
                 };
-            else
+            else {
                 apps[appId].count++;
+                apps[appId].windows.push({
+                    address: addr,
+                    workspaceId: wsId
+                });
+            }
         }
         return Object.values(apps);
     }
@@ -229,6 +255,10 @@ PanelWindow {
         let running = runningApps;
         let seen = {};
 
+        items.push({
+            isLauncher: true
+        });
+
         for (let i = 0; i < favs.length; i++) {
             let favId = favs[i];
             let runningInfo = running.find(r => r.appId === favId);
@@ -237,8 +267,9 @@ PanelWindow {
                 appData: resolveAppData(favId),
                 isPinnedToDock: true,
                 isRunning: runningInfo !== undefined,
-                windowAddress: runningInfo ? runningInfo.address : "",
-                instanceCount: runningInfo ? runningInfo.count : 0
+                windowAddress: runningInfo ? runningInfo.windows[0].address : "",
+                instanceCount: runningInfo ? runningInfo.count : 0,
+                windows: runningInfo ? runningInfo.windows : []
             });
             seen[favId] = true;
         }
@@ -258,8 +289,9 @@ PanelWindow {
                     appData: resolveAppData(r.appId),
                     isPinnedToDock: false,
                     isRunning: true,
-                    windowAddress: r.address,
-                    instanceCount: r.count
+                    windowAddress: r.windows[0].address,
+                    instanceCount: r.count,
+                    windows: r.windows
                 });
                 seen[r.appId] = true;
             }
@@ -287,9 +319,21 @@ PanelWindow {
     // =========================================================
     // 3. مسرح العرض (الكبسولة والنزول الداخلي المُفصّل بانسيابية)
     // =========================================================
-    Rectangle {
+    Item { // تم التغيير إلى Item لتفادي مشكلة قص الأبناء (Clipping) عند تفعيل الـ layer
         id: dockContainer
         anchors.horizontalCenter: parent.horizontalCenter
+
+        // 4. تطبيق الإزاحة الأفقية المتناسبة مع حالة القائمة اليسرى ليتطابق التحرك مع سطح المكتب والنوتش
+        anchors.horizontalCenterOffset: App.menuStyle !== C.FLOATING && root.isLeftMenuOpen ? ThemeManager.selectedTheme.dimensions.menuWidth + 5 : 0
+
+        // تطبيق الأنيميشن بنفس معايير منحنى التسارع ومعدل الوقت لسطح المكتب
+        Behavior on anchors.horizontalCenterOffset {
+            NumberAnimation {
+                duration: AnimationConfig.animDuration
+                easing.type: Easing.Bezier
+                easing.bezierCurve: AnimationConfig.bezierAccelerate
+            }
+        }
 
         // الانزياح الحركي المحصور للأنيميشن داخل النطاق الخاص المتروك عبر Implicit Height دون التأثير المفرط!
         y: shouldDockBeRevealed ? (root.height - height - 12) : (root.height + 20)
@@ -297,37 +341,12 @@ PanelWindow {
         width: dockRow.childrenRect.width + 24
         onWidthChanged: EventBus.emit(Events.DOCK_WIDTH_CHANGED, width)
         height: App.dockIconSize + 32
-        radius: effectiveHasApps ? ThemeManager.selectedTheme.dimensions.elementRadius * 1.5 : 24
-        visible: dockItems.length > 0
-
-        color: effectiveHasApps ? ThemeManager.selectedTheme.colors.surface : "transparent"
-        border.color: effectiveHasApps ? ThemeManager.selectedTheme.colors.primary.alpha(0.2) : "transparent"
-        border.width: effectiveHasApps ? 1 : 0
+        visible: true
 
         Behavior on y {
-            SpringAnimation {
-                spring: 2.8
-                damping: 0.6
-                epsilon: 0.1
-            }
-        }
-        Behavior on color {
-            ColorAnimation {
-                duration: 300
-                easing.type: Easing.OutCubic
-            }
-        }
-        Behavior on border.color {
-            ColorAnimation {
-                duration: 300
-                easing.type: Easing.OutCubic
-            }
-        }
-        Behavior on radius {
             NumberAnimation {
-                duration: 500
-                easing.type: Easing.OutBack
-                easing.overshoot: 1.2
+                duration: 280
+                easing.type: Easing.OutCubic
             }
         }
         Behavior on width {
@@ -338,14 +357,45 @@ PanelWindow {
             }
         }
 
-        layer.enabled: hasAppsOnWorkspace
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowColor: ThemeManager.selectedTheme.colors.shadow.alpha(0.5)
-            shadowBlur: 0.8
-            shadowVerticalOffset: 4
-            shadowHorizontalOffset: 0
-            shadowScale: 1.0
+        // --- مستطيل الخلفية المستقل للتحكم بالرسم والتأثيرات البصرية دون قص الأزرار والتولتيب ---
+        Rectangle {
+            id: dockBackground
+            anchors.fill: parent
+            radius: effectiveHasApps ? ThemeManager.selectedTheme.dimensions.elementRadius * 1.5 : 24
+            color: effectiveHasApps ? ThemeManager.selectedTheme.colors.surface : "transparent"
+            border.color: effectiveHasApps ? ThemeManager.selectedTheme.colors.primary.alpha(0.2) : "transparent"
+            border.width: effectiveHasApps ? 1 : 0
+
+            Behavior on color {
+                ColorAnimation {
+                    duration: 300
+                    easing.type: Easing.OutCubic
+                }
+            }
+            Behavior on border.color {
+                ColorAnimation {
+                    duration: 300
+                    easing.type: Easing.OutCubic
+                }
+            }
+            Behavior on radius {
+                NumberAnimation {
+                    duration: 500
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 1.2
+                }
+            }
+
+            // تفعيل الطبقة الرسومية والظل هنا فقط؛ لكي لا تتقيد النوافذ المنبثقة والتولتيب بحدود الحاوية
+            layer.enabled: hasAppsOnWorkspace
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                shadowColor: ThemeManager.selectedTheme.colors.shadow.alpha(0.5)
+                shadowBlur: 0.8
+                shadowVerticalOffset: 4
+                shadowHorizontalOffset: 0
+                shadowScale: 1.0
+            }
         }
 
         Row {
@@ -359,7 +409,7 @@ PanelWindow {
                 delegate: Loader {
                     active: true
                     readonly property var itemData: modelData
-                    sourceComponent: itemData.isSeparator ? separatorComponent : dockItemComponent
+                    sourceComponent: itemData.isSeparator ? separatorComponent : itemData.isLauncher ? launcherComponent : dockItemComponent
 
                     Component {
                         id: separatorComponent
@@ -368,6 +418,39 @@ PanelWindow {
                             height: App.dockIconSize + 8
                             anchors.verticalCenter: parent.verticalCenter
                             color: ThemeManager.selectedTheme.colors.outlineVariant
+                        }
+                    }
+
+                    Component {
+                        id: launcherComponent
+                        Rectangle {
+                            width: App.dockIconSize + 16
+                            height: App.dockIconSize + 16
+                            radius: ThemeManager.selectedTheme.dimensions.elementRadius * 0.8
+                            color: launcherMouse.containsMouse ? ThemeManager.selectedTheme.colors.primary.alpha(0.12) : "transparent"
+
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: 150
+                                }
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "󰀻"
+                                font.family: ThemeManager.selectedTheme.typography.iconFont
+                                font.pixelSize: App.dockIconSize * 0.65
+                                color: ThemeManager.selectedTheme.colors.onSurface
+                            }
+
+                            MouseArea {
+                                id: launcherMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: {
+                                    EventBus.emit(Events.TOGGLE_BOTTOM_LAUNCHER);
+                                }
+                            }
                         }
                     }
 
@@ -383,6 +466,7 @@ PanelWindow {
                             tooltipText: itemData.appId || ""
                             iconSize: App.dockIconSize
                             panelWindow: root
+                            windows: itemData.windows || []
                         }
                     }
                 }

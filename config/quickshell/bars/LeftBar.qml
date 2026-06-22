@@ -120,12 +120,6 @@ PanelWindow {
         //     name: "Favorites"
         //     notificationCount: 0
         // }
-        ListElement {
-            icon: "󰀻"
-            activeIcon: "󰵆"
-            name: "All Apps"
-            notificationCount: 0
-        }
         // --- ADDED POWER OPTION HERE ---
         ListElement {
             icon: ""           // Standard Power Icon
@@ -219,15 +213,8 @@ PanelWindow {
 
             const globalIndex = offset + localIndex;
 
-            // 1. All Apps Logic (Index 0)
-            if (groupName === "bottom" && localIndex === 0 && App.useBottomLauncher) {
-                bottomButtonGroup.currentIndex = -1;
-                EventBus.emit(Events.TOGGLE_BOTTOM_LAUNCHER);
-                return;
-            }
-
-            // 2. [NEW] Power Button Logic (Index 1)
-            if (groupName === "bottom" && localIndex === 1) {
+            // Power Button Logic (Index 0)
+            if (groupName === "bottom" && localIndex === 0) {
                 // Deselect visually
                 bottomButtonGroup.currentIndex = -1;
 
@@ -262,25 +249,13 @@ PanelWindow {
     // 3. UI GROUPS (الواجهات)
     // ---------------------------------------------------------
 
-    // --- Top Group (System) ---
-    ButtonGroup {
-        id: topButtonGroup
-        theme: ThemeManager.selectedTheme
-        implicitWidth: 30
+    // --- Column Wrapper (دمج الظلال في طبقة واحدة) ---
+    Item {
+        id: buttonColumnRoot
+        anchors.fill: parent
 
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.topMargin: 20
-        anchors.leftMargin: 5
-        anchors.rightMargin: 5
-
-        useHand: true
-        model: topModel
-
-        // تأثير الظل (يمكنك تكراره أو وضعه في مكون منفصل)
         layer.enabled: true
         layer.effect: MultiEffect {
-            source: topButtonGroup
             shadowEnabled: true
             shadowColor: ThemeManager.selectedTheme.colors.shadow.alpha(0.6)
             shadowBlur: 0.6
@@ -288,69 +263,58 @@ PanelWindow {
             shadowHorizontalOffset: 2
         }
 
-        onCurrentIndexChanged: updateGlobalState(topButtonGroup.currentIndex, 0, "top")
-    }
+        // --- Top Group (System) ---
+        ButtonGroup {
+            id: topButtonGroup
+            theme: ThemeManager.selectedTheme
+            implicitWidth: 30
 
-    // --- Middle Group (Productivity) ---
-    ButtonGroup {
-        id: middleButtonGroup
-        theme: ThemeManager.selectedTheme
-        implicitWidth: 30
-        // visible: false
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.topMargin: 20
+            anchors.leftMargin: 5
+            anchors.rightMargin: 5
 
-        // التموضع في المنتصف تماماً
-        anchors.centerIn: parent
-        // أو استخدم anchors.verticalCenter: parent.verticalCenter مع left
+            useHand: true
+            model: topModel
 
-        // هام: يجب إعادة ضبط الـ anchors لضمان المحاذاة اليسرى مثل البقية
-        anchors.left: parent.left
-        anchors.leftMargin: 5
-        anchors.rightMargin: 5
-
-        useHand: true
-        model: middleModel
-
-        layer.enabled: true
-        layer.effect: MultiEffect {
-            source: middleButtonGroup
-            shadowEnabled: true
-            // shadowColor: palette.shadow.alpha(0.6)
-            shadowColor: ThemeManager.selectedTheme.colors.shadow.alpha(0.6)
-            shadowBlur: 0.6
-            shadowVerticalOffset: 2
-            shadowHorizontalOffset: 2
+            onCurrentIndexChanged: updateGlobalState(topButtonGroup.currentIndex, 0, "top")
         }
 
-        onCurrentIndexChanged: updateGlobalState(middleButtonGroup.currentIndex, root.middleOffset, "middle")
-    }
+        // --- Middle Group (Productivity) ---
+        ButtonGroup {
+            id: middleButtonGroup
+            theme: ThemeManager.selectedTheme
+            implicitWidth: 30
 
-    // --- Bottom Group (Apps) ---
-    ButtonGroup {
-        id: bottomButtonGroup
-        theme: ThemeManager.selectedTheme
-        implicitWidth: 30
+            anchors.centerIn: parent
+            anchors.left: parent.left
+            anchors.leftMargin: 5
+            anchors.rightMargin: 5
 
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.bottomMargin: 20
-        anchors.leftMargin: 5
-        anchors.rightMargin: 5
+            useHand: true
+            model: middleModel
 
-        useHand: true
-        model: bottomModel
-
-        layer.enabled: true
-        layer.effect: MultiEffect {
-            source: bottomButtonGroup
-            shadowEnabled: true
-            // shadowColor: palette.shadow.alpha(0.6)
-            shadowColor: ThemeManager.selectedTheme.colors.shadow.alpha(0.6)
-            shadowBlur: 0.6
-            shadowVerticalOffset: 2
-            shadowHorizontalOffset: 2
+            onCurrentIndexChanged: updateGlobalState(middleButtonGroup.currentIndex, root.middleOffset, "middle")
         }
 
-        onCurrentIndexChanged: updateGlobalState(bottomButtonGroup.currentIndex, root.bottomOffset, "bottom")
+        // --- Bottom Group (Apps) ---
+        ButtonGroup {
+            id: bottomButtonGroup
+            theme: ThemeManager.selectedTheme
+            implicitWidth: 30
+
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.bottomMargin: 20
+            anchors.leftMargin: 5
+            anchors.rightMargin: 5
+
+            useHand: true
+            model: bottomModel
+
+            onCurrentIndexChanged: updateGlobalState(bottomButtonGroup.currentIndex, root.bottomOffset, "bottom")
+        }
     }
 
     function closePanel() {
