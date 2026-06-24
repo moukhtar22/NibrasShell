@@ -28,13 +28,13 @@ def get_top_cpu(limit=20):
     if num_logical_cores is None or num_logical_cores == 0:
         num_logical_cores = 1
 
-    primed_procs = {}
+    procs = {}
     for proc in psutil.process_iter(["pid", "name", "cmdline"]):
         try:
             if not proc.is_running():
                 continue
             proc.cpu_percent(interval=None)
-            primed_procs[proc.pid] = proc
+            procs[proc.pid] = proc
         except (
             psutil.NoSuchProcess,
             psutil.AccessDenied,
@@ -46,10 +46,12 @@ def get_top_cpu(limit=20):
 
     time.sleep(0.5)
 
-    for pid, proc in primed_procs.items():
+    for pid, proc in list(procs.items()):
         try:
+            if not proc.is_running():
+                continue
             cpu_usage = proc.cpu_percent(interval=None)
-            if cpu_usage is not None:
+            if cpu_usage is not None and cpu_usage > 0:
                 normalized_cpu_usage = cpu_usage / num_logical_cores
                 cmdline = proc.info.get("cmdline") or []
                 processes_data.append(
@@ -69,24 +71,47 @@ def get_top_cpu(limit=20):
         except Exception:
             pass
 
+    if len(processes_data) == 0:
+        time.sleep(0.3)
+        for pid, proc in list(procs.items()):
+            try:
+                if not proc.is_running():
+                    continue
+                cpu_usage = proc.cpu_percent(interval=None)
+                if cpu_usage is not None:
+                    normalized_cpu_usage = cpu_usage / num_logical_cores
+                    cmdline = proc.info.get("cmdline") or []
+                    processes_data.append(
+                        {
+                            "pid": pid,
+                            "name": proc.info.get("name", "Unknown"),
+                            "value": round(normalized_cpu_usage, 2),
+                            "cmdline": " ".join(cmdline[:8]),
+                        }
+                    )
+            except (
+                psutil.NoSuchProcess,
+                psutil.AccessDenied,
+                psutil.ZombieProcess,
+            ):
+                continue
+            except Exception:
+                pass
+
     processes_data.sort(key=lambda x: x["value"], reverse=True)
     return processes_data[:limit]
 
 
 def get_top_ram(limit=20):
     processes = []
-    for p in psutil.process_iter(
-        ["pid", "name", "memory_percent", "memory_info"]
-    ):
+    for p in psutil.process_iter(["pid", "name", "memory_percent", "memory_info"]):
         try:
             mem_pct = p.info.get("memory_percent", 0.0)
             if mem_pct is None:
                 mem_pct = 0.0
 
             mem_info = p.info.get("memory_info")
-            mem_mb = (
-                round(mem_info.rss / (1024 * 1024), 2) if mem_info else 0.0
-            )
+            mem_mb = round(mem_info.rss / (1024 * 1024), 2) if mem_info else 0.0
 
             processes.append(
                 {
@@ -101,6 +126,81 @@ def get_top_ram(limit=20):
 
     processes.sort(key=lambda x: x["value"], reverse=True)
     return processes[:limit]
+
+
+def get_process_detail(pid):
+    try:
+        proc = psutil.Process(pid)
+        # cpu_percent returns 0.0 on first call (no previous delta),
+        # so measure with interval to get a real value immediately.
+        cpu_percent = proc.cpu_percent(interval=0.1)
+        proc_info = proc.as_dict(
+            attrs=[
+                "pid",
+                "name",
+                "status",
+                "username",
+                "create_time",
+                "memory_percent",
+                "memory_info",
+                "exe",
+                "cmdline",
+                "cwd",
+                "num_threads",
+                "ppid",
+            ]
+        )
+        proc_info["cpu_percent"] = cpu_percent
+    except psutil.NoSuchProcess:
+        return {"error": f"Process with PID {pid} not found"}
+    except psutil.AccessDenied:
+        return {"error": f"Access denied for PID {pid}"}
+
+    mem_info = proc_info.get("memory_info")
+    mem_rss_mb = round(mem_info.rss / (1024 * 1024), 2) if mem_info else 0.0
+    mem_vms_mb = round(mem_info.vms / (1024 * 1024), 2) if mem_info else 0.0
+
+    create_time = proc_info.get("create_time")
+    if create_time:
+        create_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(create_time))
+    else:
+        create_time = "Unknown"
+
+    cmdline = proc_info.get("cmdline") or []
+
+    parent_name = "Unknown"
+    ppid = proc_info.get("ppid", 0)
+    if ppid:
+        try:
+            parent_name = psutil.Process(ppid).name()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            parent_name = "Unknown"
+
+    children = []
+    try:
+        for child in proc.children(recursive=True):
+            children.append({"pid": child.pid, "name": child.name()})
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        pass
+
+    return {
+        "pid": proc_info.get("pid", pid),
+        "name": proc_info.get("name", "Unknown"),
+        "status": proc_info.get("status", "Unknown"),
+        "username": proc_info.get("username", "Unknown"),
+        "create_time": create_time,
+        "cpu_percent": round(proc_info.get("cpu_percent", 0.0) or 0.0, 2),
+        "memory_percent": round(proc_info.get("memory_percent", 0.0) or 0.0, 2),
+        "memory_rss_mb": mem_rss_mb,
+        "memory_vms_mb": mem_vms_mb,
+        "exe": proc_info.get("exe") or "Unknown",
+        "cmdline": " ".join(cmdline[:16]),
+        "cwd": proc_info.get("cwd") or "Unknown",
+        "num_threads": proc_info.get("num_threads", 0),
+        "ppid": ppid,
+        "parent_name": parent_name,
+        "children": children,
+    }
 
 
 # ==========================================
@@ -168,7 +268,7 @@ def get_cpu_temps_psutil():
                     ):
                         add_temp_reading(
                             "cpu",
-                            f"معالج (psutil) {i+1}",
+                            f"معالج (psutil) {i + 1}",
                             entry.current,
                             source="psutil",
                         )
@@ -183,9 +283,7 @@ def get_gpu_temps():
     if system == "Linux":
         # محاولة قراءة NVIDIA
         try:
-            subprocess.run(
-                ["which", "nvidia-smi"], check=True, capture_output=True
-            )
+            subprocess.run(["which", "nvidia-smi"], check=True, capture_output=True)
             result = subprocess.run(
                 [
                     "nvidia-smi",
@@ -208,9 +306,7 @@ def get_gpu_temps():
         except FileNotFoundError:
             pass
         except Exception as e:
-            all_temperatures_data["warnings"].append(
-                f"Linux: خطأ في قراءة NVIDIA: {e}"
-            )
+            all_temperatures_data["warnings"].append(f"Linux: خطأ في قراءة NVIDIA: {e}")
 
         # محاولة قراءة AMD/Intel عبر sensors
         try:
@@ -238,9 +334,7 @@ def get_gpu_temps():
                                     source="lm_sensors",
                                 )
         except Exception as e:
-            all_temperatures_data["warnings"].append(
-                f"Linux: خطأ sensors: {e}"
-            )
+            all_temperatures_data["warnings"].append(f"Linux: خطأ sensors: {e}")
 
 
 def get_storage_temps():
@@ -251,8 +345,7 @@ def get_storage_temps():
         for sensor_name, sensor_list in temps.items():
             for i, entry in enumerate(sensor_list):
                 if entry.current is not None and (
-                    "nvme" in sensor_name.lower()
-                    or "disk" in sensor_name.lower()
+                    "nvme" in sensor_name.lower() or "disk" in sensor_name.lower()
                 ):
                     add_temp_reading(
                         "storage",
@@ -322,9 +415,7 @@ def get_storage_temps():
                         )
                     processed_dev_names.add(disk_name)
         except Exception as e:
-            all_temperatures_data["warnings"].append(
-                f"Linux: خطأ عام في الأقراص: {e}"
-            )
+            all_temperatures_data["warnings"].append(f"Linux: خطأ عام في الأقراص: {e}")
 
 
 def get_detailed_temps():
@@ -340,14 +431,18 @@ def get_detailed_temps():
 # ==========================================
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="System Diagnostics On-Demand"
-    )
+    parser = argparse.ArgumentParser(description="System Diagnostics On-Demand")
     parser.add_argument(
         "--action",
-        choices=["cpu", "ram", "temps", "all"],
+        choices=["cpu", "ram", "temps", "process_detail", "all"],
         required=True,
         help="Type of data to fetch",
+    )
+    parser.add_argument(
+        "--pid",
+        type=int,
+        default=None,
+        help="PID for process_detail action",
     )
     args = parser.parse_args()
 
@@ -360,6 +455,11 @@ if __name__ == "__main__":
             result = get_top_ram()
         elif args.action == "temps":
             result = get_detailed_temps()
+        elif args.action == "process_detail":
+            if args.pid is None:
+                result = {"error": "--pid is required for process_detail"}
+            else:
+                result = get_process_detail(args.pid)
         elif args.action == "all":
             result = {
                 "top_cpu": get_top_cpu(10),

@@ -162,219 +162,6 @@ BaseThemeSettings {
             Layout.preferredWidth: 500
         }
 
-        // --- General Section ---
-        SectionCard {
-            title: qsTr("General")
-            Layout.fillWidth: true
-            enabled: root.localEnabled
-
-            // Font
-            Controls.Label {
-                text: qsTr("Font")
-                font.bold: true
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                EditableField {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 30
-                    Layout.minimumWidth: 50
-                    text: root.localFont
-                    selectedTheme: root.theme
-                    onEditingFinished: {
-                        if (root.isLoading)
-                            return;
-                        root.localFont = text;
-                        root.applySingleProperty("_desktopClockFont", text);
-                    }
-                }
-                MButton {
-                    text: ""
-                    Layout.preferredHeight: 30
-                    Layout.preferredWidth: 40
-                    font.family: root.theme ? root.theme.typography.iconFont : ""
-                    onClicked: {
-                        fontDialog.currentFont.family = root.localFont;
-                        fontDialog.open();
-                    }
-                }
-            }
-
-            // Format
-            Controls.Label {
-                text: qsTr("Format")
-                font.bold: true
-                Layout.topMargin: 10
-            }
-            EditableField {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 30
-                Layout.minimumWidth: 50
-                text: root.localFormat
-                selectedTheme: root.theme
-                onEditingFinished: {
-                    if (root.isLoading)
-                        return;
-                    root.localFormat = text;
-                    root.applySingleProperty("_desktopClockFormat", text);
-                }
-            }
-
-            // Locale
-            Controls.Label {
-                text: qsTr("Locale")
-                font.bold: true
-                Layout.topMargin: 10
-            }
-            EditableField {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 30
-                Layout.minimumWidth: 50
-                text: root.localLocale
-                selectedTheme: root.theme
-                onEditingFinished: {
-                    if (root.isLoading)
-                        return;
-                    root.localLocale = text;
-                    root.applySingleProperty("_desktopClockLocal", text);
-                }
-            }
-        }
-
-        // --- Appearance Section ---
-        SectionCard {
-            title: qsTr("Appearance")
-            Layout.fillWidth: true
-            enabled: root.localEnabled
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 20
-
-                // Color Settings
-                ColumnLayout {
-                    Layout.fillWidth: true
-
-                    SettingSwitch {
-                        label: qsTr("Use theme color")
-                        isChecked: root.localUseThemeColor
-                        font.bold: true
-                        onIsCheckedChanged: {
-                            if (root.isLoading)
-                                return;
-                            root.localUseThemeColor = isChecked;
-                            root.applySingleProperty("_desktopClockUseThemeColor", isChecked);
-                        }
-                    }
-
-                    ColumnLayout {
-                        enabled: !root.localUseThemeColor
-                        Layout.fillWidth: true
-
-                        Controls.Label {
-                            text: qsTr("Clock Color")
-                            font.bold: true
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            EditableField {
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: 30
-                                Layout.minimumWidth: 50
-                                text: root.localColor.toString()
-                                selectedTheme: root.theme
-                                onEditingFinished: {
-                                    if (root.isLoading)
-                                        return;
-                                    root.localColor = text;
-                                    root.applySingleProperty("_desktopClockColor", text);
-                                }
-                            }
-                            Rectangle {
-                                Layout.preferredWidth: 35
-                                Layout.preferredHeight: 30
-                                color: root.localColor
-                                border.color: root.theme.colors.onSurfaceVariant
-                                border.width: 1
-                                radius: 4
-                            }
-                            MButton {
-                                text: "󰃉"
-                                Layout.preferredWidth: 35
-                                Layout.preferredHeight: 30
-                                onClicked: {
-                                    colorDialog.target = "main";
-                                    colorDialog.currentColor = root.localColor;
-                                    colorDialog.open();
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Shadow Settings
-                ColumnLayout {
-                    Layout.fillWidth: true
-
-                    SettingSwitch {
-                        label: qsTr("Enable shadow")
-                        isChecked: root.localShadowEnabled
-                        font.bold: true
-                        onIsCheckedChanged: {
-                            if (root.isLoading)
-                                return;
-                            root.localShadowEnabled = isChecked;
-                            root.applySingleProperty("_desktopClockShadowEnabled", isChecked);
-                        }
-                    }
-
-                    ColumnLayout {
-                        enabled: root.localShadowEnabled
-                        Layout.fillWidth: true
-
-                        Controls.Label {
-                            text: qsTr("Shadow Color")
-                            font.bold: true
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            EditableField {
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: 30
-                                Layout.minimumWidth: 50
-                                text: root.localShadowColor.toString()
-                                selectedTheme: root.theme
-                                onEditingFinished: {
-                                    if (root.isLoading)
-                                        return;
-                                    root.localShadowColor = text;
-                                    root.applySingleProperty("_desktopClockShadowColor", text);
-                                }
-                            }
-                            Rectangle {
-                                Layout.preferredWidth: 35
-                                Layout.preferredHeight: 30
-                                color: root.localShadowColor
-                                border.color: root.theme.colors.onSurfaceVariant
-                                border.width: 1
-                                radius: 4
-                            }
-                            MButton {
-                                text: "󰃉"
-                                Layout.preferredWidth: 35
-                                Layout.preferredHeight: 30
-                                onClicked: {
-                                    colorDialog.target = "shadow";
-                                    colorDialog.currentColor = root.localShadowColor;
-                                    colorDialog.open();
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         // --- Depth Effect Section ---
         SectionCard {
             id: depthEffectUi
@@ -522,6 +309,219 @@ BaseThemeSettings {
                         Layout.preferredWidth: 40
                         font.family: root.theme ? root.theme.typography.iconFont : ""
                         onClicked: fileDialog.open()
+                    }
+                }
+            }
+        }
+
+        // --- General Section ---
+        SectionCard {
+            title: qsTr("General")
+            Layout.fillWidth: true
+            enabled: root.localEnabled
+
+            // Font
+            Controls.Label {
+                text: qsTr("Font")
+                font.bold: true
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                EditableField {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 30
+                    Layout.minimumWidth: 50
+                    text: root.localFont
+                    selectedTheme: root.theme
+                    onEditingFinished: {
+                        if (root.isLoading)
+                            return;
+                        root.localFont = text;
+                        root.applySingleProperty("_desktopClockFont", text);
+                    }
+                }
+                MButton {
+                    text: ""
+                    Layout.preferredHeight: 30
+                    Layout.preferredWidth: 40
+                    font.family: root.theme ? root.theme.typography.iconFont : ""
+                    onClicked: {
+                        fontDialog.currentFont.family = root.localFont;
+                        fontDialog.open();
+                    }
+                }
+            }
+
+            // Format
+            Controls.Label {
+                text: qsTr("Format")
+                font.bold: true
+                Layout.topMargin: 10
+            }
+            EditableField {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 30
+                Layout.minimumWidth: 50
+                text: root.localFormat
+                selectedTheme: root.theme
+                onEditingFinished: {
+                    if (root.isLoading)
+                        return;
+                    root.localFormat = text;
+                    root.applySingleProperty("_desktopClockFormat", text);
+                }
+            }
+
+            // Locale
+            Controls.Label {
+                text: qsTr("Locale")
+                font.bold: true
+                Layout.topMargin: 10
+            }
+            EditableField {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 30
+                Layout.minimumWidth: 50
+                text: root.localLocale
+                selectedTheme: root.theme
+                onEditingFinished: {
+                    if (root.isLoading)
+                        return;
+                    root.localLocale = text;
+                    root.applySingleProperty("_desktopClockLocal", text);
+                }
+            }
+        }
+
+        // --- Appearance Section ---
+        SectionCard {
+            title: qsTr("Appearance")
+            Layout.fillWidth: true
+            enabled: root.localEnabled
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 20
+
+                // Color Settings
+                ColumnLayout {
+                    Layout.fillWidth: true
+
+                    SettingSwitch {
+                        label: qsTr("Use theme color")
+                        isChecked: root.localUseThemeColor
+                        font.bold: true
+                        onIsCheckedChanged: {
+                            if (root.isLoading)
+                                return;
+                            root.localUseThemeColor = isChecked;
+                            root.applySingleProperty("_desktopClockUseThemeColor", isChecked);
+                        }
+                    }
+
+                    ColumnLayout {
+                        enabled: !root.localUseThemeColor
+                        Layout.fillWidth: true
+
+                        Controls.Label {
+                            text: qsTr("Clock Color")
+                            font.bold: true
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            EditableField {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 30
+                                Layout.minimumWidth: 50
+                                text: root.localColor.toString()
+                                selectedTheme: root.theme
+                                onEditingFinished: {
+                                    if (root.isLoading)
+                                        return;
+                                    root.localColor = text;
+                                    root.applySingleProperty("_desktopClockColor", text);
+                                }
+                            }
+                            Rectangle {
+                                Layout.preferredWidth: 35
+                                Layout.preferredHeight: 30
+                                color: root.localColor
+                                border.color: root.theme.colors.onSurfaceVariant
+                                border.width: 1
+                                radius: root.theme.dimensions.shapeExtraSmall
+                            }
+                            MButton {
+                                text: "󰃉"
+                                Layout.preferredWidth: 35
+                                Layout.preferredHeight: 30
+                                onClicked: {
+                                    colorDialog.target = "main";
+                                    colorDialog.currentColor = root.localColor;
+                                    colorDialog.open();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Shadow Settings
+                ColumnLayout {
+                    Layout.fillWidth: true
+
+                    SettingSwitch {
+                        label: qsTr("Enable shadow")
+                        isChecked: root.localShadowEnabled
+                        font.bold: true
+                        onIsCheckedChanged: {
+                            if (root.isLoading)
+                                return;
+                            root.localShadowEnabled = isChecked;
+                            root.applySingleProperty("_desktopClockShadowEnabled", isChecked);
+                        }
+                    }
+
+                    ColumnLayout {
+                        enabled: root.localShadowEnabled
+                        Layout.fillWidth: true
+
+                        Controls.Label {
+                            text: qsTr("Shadow Color")
+                            font.bold: true
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            EditableField {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 30
+                                Layout.minimumWidth: 50
+                                text: root.localShadowColor.toString()
+                                selectedTheme: root.theme
+                                onEditingFinished: {
+                                    if (root.isLoading)
+                                        return;
+                                    root.localShadowColor = text;
+                                    root.applySingleProperty("_desktopClockShadowColor", text);
+                                }
+                            }
+                            Rectangle {
+                                Layout.preferredWidth: 35
+                                Layout.preferredHeight: 30
+                                color: root.localShadowColor
+                                border.color: root.theme.colors.onSurfaceVariant
+                                border.width: 1
+                                radius: root.theme.dimensions.shapeExtraSmall
+                            }
+                            MButton {
+                                text: "󰃉"
+                                Layout.preferredWidth: 35
+                                Layout.preferredHeight: 30
+                                onClicked: {
+                                    colorDialog.target = "shadow";
+                                    colorDialog.currentColor = root.localShadowColor;
+                                    colorDialog.open();
+                                }
+                            }
+                        }
                     }
                 }
             }
