@@ -14,6 +14,7 @@ Singleton {
     readonly property int maxEventsCount: 50
 
     property ListModel eventsModel: ListModel {}
+
     property int _eventCounter: 0
 
     property int _spikeCooldownMs: App.resourceAlertCooldownMs
@@ -407,11 +408,7 @@ Singleton {
             eventsModel.setProperty(idx, "aiProcessBehavior", data.process_anomaly.behavior || "Unknown behavior");
         }
 
-        if (data.actions && data.actions.length)
-            eventsModel.setProperty(idx, "aiActions", data.actions);
-        else
-            eventsModel.setProperty(idx, "aiActions", []);
-
+        eventsModel.setProperty(idx, "aiActions", data.actions || []);
         eventsModel.setProperty(idx, "isLoading", false);
 
         if (data.severity) {

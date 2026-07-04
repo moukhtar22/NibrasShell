@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Hyprland
 import "root:/themes"
 import "root:/components"
+import "root:/windows/leftwindow/base"
 import "root:/utils"
 import "root:/config/EventNames.js" as Events
 import "root:/config/ConstValues.js" as C
@@ -18,7 +19,7 @@ PanelWindow {
     visible: false
 
     exclusionMode: ExclusionMode.Ignore
-    focusable: menus.currentIndex == C.APPLICATIONS_MENU_INDEX || menus.currentIndex == C.NETWORK_MENU_INDEX || menus.currentIndex == C.CLIPBOARD_MENU_INDEX || menus.currentIndex == C.TODO_MENU_INDEX
+    focusable: menus.currentIndex == C.APPLICATIONS_MENU_INDEX || menus.currentIndex == C.NETWORK_MENU_INDEX || menus.currentIndex == C.CLIPBOARD_MENU_INDEX || menus.currentIndex == C.TODO_MENU_INDEX || menus.currentIndex == C.MONIROTS_MENU_INDEX
     implicitWidth: ThemeManager.selectedTheme.dimensions.menuWidth
 
     anchors {
